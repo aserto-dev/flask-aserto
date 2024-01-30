@@ -7,20 +7,19 @@ from aserto.client.authorizer.aio import AuthorizerClient
 from flask import Flask, jsonify
 from flask.wrappers import Response
 
-from .check import CheckMiddleware, CheckOptions
-
 from ._defaults import (
+    AuthorizationError,
     DEFAULT_DISPLAY_STATE_MAP_ENDPOINT,
     DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_DISPLAY_STATE_MAP,
     DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_ENDPOINT,
+    Handler,
     IdentityMapper,
+    ObjectMapper,
     ResourceMapper,
     StringMapper,
     create_default_policy_path_resolver,
-    Handler,
-    ObjectMapper,
-    AuthorizationError
 )
+from .check import CheckMiddleware, CheckOptions
 
 
 class AsertoMiddleware:
@@ -160,6 +159,11 @@ class AsertoMiddleware:
 
         return self._with_overrides(**kwargs)._authorize
 
+    async def __call__(
+        self, *args: Any, **kwargs: Any
+    ) -> Union[Handler, Callable[[Handler], Handler]]:
+        return await self.authorize(*args, **kwargs)
+
     def _authorize(self, handler: Handler) -> Handler:
         if self._policy_instance_name == None:
             raise TypeError(f"{self._policy_instance_name}() should not be None")
@@ -191,9 +195,9 @@ class AsertoMiddleware:
             return await handler(*args, **kwargs)
 
         return cast(Handler, decorated)
-    
+
     def check(
-        self, 
+        self,
         objId: Optional[str] = "",
         objType: Optional[str] = "",
         objIdMapper: Optional[StringMapper] = None,
@@ -207,10 +211,18 @@ class AsertoMiddleware:
         policyPathMapper: Optional[StringMapper] = None,
     ) -> CheckMiddleware:
         opts = CheckOptions(
-            objId=objId, objType=objType,objIdMapper=objIdMapper,
-            objMapper=objMapper, relationName=relationName, relationMapper=relationMapper,
-            subjType=subjType, subjMapper=subjMapper, policyRoot=policyRoot,
-            policyPath=policyPath, policyPathMapper=policyPathMapper)
+            objId=objId,
+            objType=objType,
+            objIdMapper=objIdMapper,
+            objMapper=objMapper,
+            relationName=relationName,
+            relationMapper=relationMapper,
+            subjType=subjType,
+            subjMapper=subjMapper,
+            policyRoot=policyRoot,
+            policyPath=policyPath,
+            policyPathMapper=policyPathMapper,
+        )
         return CheckMiddleware(options=opts, aserto_middleware=self)
 
     def register_display_state_map(
@@ -224,7 +236,6 @@ class AsertoMiddleware:
         async def __displaystatemap() -> Response:
             nonlocal resource_context_provider
             if resource_context_provider is None:
-
                 resource_context_provider = (
                     DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_DISPLAY_STATE_MAP()
                 )
