@@ -79,10 +79,10 @@ aserto = AsertoMiddleware(**aserto_options)
 
 
 @app.route("/api/users/<id>", methods=["GET"])
-@aserto.authorize
+@aserto
 def api_user(id: str) -> Response:
     # Raises an AuthorizationError if the `GET.api.users.__id`
-    # policy returns a decision of "allowed = false" 
+    # policy returns a decision of "allowed = false"
     ...
 ```
 
@@ -104,7 +104,7 @@ def id_mapper() -> str:
 
 @app.route("/resource/<asset>", methods=["GET"])
 @requires_auth
-@aserto.check(objType="resource", objIdMapper=id_mapper, relationName="can_read").authorize
+@aserto.check(objType="resource", objIdMapper=id_mapper, relationName="can_read")
 def get_resource(asset: str):
     return {"message": "Hello from GET /resource/" + asset}
 
@@ -117,7 +117,7 @@ The `check` function accepts options that configure the object, subject, and rel
 
 ```py
     def check(
-        self, 
+        self,
         objId: Optional[str] = "",
         objType: Optional[str] = "",
         objIdMapper: Optional[StringMapper] = None,

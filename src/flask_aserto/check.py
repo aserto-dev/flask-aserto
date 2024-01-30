@@ -1,27 +1,30 @@
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Optional, Union, cast, TYPE_CHECKING
-if TYPE_CHECKING:
-    from .middleware import AsertoMiddleware
+from typing import Any, Callable, Optional, TYPE_CHECKING, Union, cast, overload
 
 from aserto.client import ResourceContext
 from flask.wrappers import Response
 
 from ._defaults import (
-    IdentityMapper,
-    StringMapper,
-    ResourceMapper,
-    ObjectMapper,
-    Obj,
     AuthorizationError,
-    Handler
+    Handler,
+    IdentityMapper,
+    Obj,
+    ObjectMapper,
+    ResourceMapper,
+    StringMapper,
 )
+
+if TYPE_CHECKING:
+    from .middleware import AsertoMiddleware
+
 
 @dataclass(frozen=True)
 class CheckOptions:
     """
     Check options class used to create a new instance of Check Middleware
     """
+
     objId: Optional[str] = ""
     objType: Optional[str] = ""
     objIdMapper: Optional[StringMapper] = None
@@ -35,53 +38,28 @@ class CheckOptions:
     policyPathMapper: Optional[StringMapper] = None
 
 
-
-def build_resource_context_mapper(
-       opts: CheckOptions
-) -> ResourceMapper:
-
+def build_resource_context_mapper(opts: CheckOptions) -> ResourceMapper:
     def resource() -> ResourceContext:
-        objid = (
-            opts.objId
-            if opts.objId is not None
-            else ""
-        )
-        objtype = (
-            opts.objType
-            if opts.objType is not None
-            else ""
-        )
-        
-        obj = (
-            opts.objMapper()
-            if opts.objMapper is not None
-            else Obj(id=objid, objType=objtype)
-        )
-         
-        obj.id = (
-            opts.objIdMapper()
-            if opts.objIdMapper is not None
-            else obj.id
-        )
+        objid = opts.objId if opts.objId is not None else ""
+        objtype = opts.objType if opts.objType is not None else ""
 
-        relation = (
-            opts.relationMapper()
-            if opts.relationMapper is not None
-            else opts.relationName
-        )
+        obj = opts.objMapper() if opts.objMapper is not None else Obj(id=objid, objType=objtype)
 
-        subjType = (
-            opts.subjType
-            if opts.subjType != ""
-            else "user"
-        )
+        obj.id = opts.objIdMapper() if opts.objIdMapper is not None else obj.id
 
-        return {"relation":     relation,
-		"object_type":  obj.objType,
-		"object_id":    obj.id,
-		"subject_type": subjType}
-    
+        relation = opts.relationMapper() if opts.relationMapper is not None else opts.relationName
+
+        subjType = opts.subjType if opts.subjType != "" else "user"
+
+        return {
+            "relation": relation,
+            "object_type": obj.objType,
+            "object_id": obj.id,
+            "subject_type": subjType,
+        }
+
     return resource
+
 
 class CheckMiddleware:
     def __init__(
@@ -91,7 +69,7 @@ class CheckMiddleware:
         aserto_middleware: "AsertoMiddleware",
     ):
         self._aserto_middleware = aserto_middleware
-        
+
         self._identity_provider = (
             options.subjMapper
             if options.subjMapper is not None
@@ -107,7 +85,7 @@ class CheckMiddleware:
             if not kwargs
             else CheckMiddleware(
                 aserto_middleware=self._aserto_middleware,
-                options = CheckOptions(
+                options=CheckOptions(
                     relationName=kwargs.get("relation_name", self._options.relationName),
                     relationMapper=kwargs.get("relation_mapper", self._options.relationMapper),
                     policyPath=kwargs.get("policy_path", self._options.policyPath),
@@ -122,7 +100,7 @@ class CheckMiddleware:
                 ),
             )
         )
-    
+
     def _build_policy_path_mapper(self) -> StringMapper:
         def mapper() -> str:
             policy_path = ""
@@ -134,8 +112,29 @@ class CheckMiddleware:
                 if policy_root:
                     policy_path = f"{policy_root}.{policy_path}"
             return policy_path
-        
+
         return mapper
+
+    @overload
+    def authorize(self, handler: Handler) -> Handler:
+        ...
+
+    @overload
+    def authorize(
+        self,
+        objId: Optional[str] = "",
+        objType: Optional[str] = "",
+        objIdMapper: Optional[StringMapper] = None,
+        objMapper: Optional[ObjectMapper] = None,
+        relationName: Optional[str] = "",
+        relationMapper: Optional[StringMapper] = None,
+        subjType: Optional[str] = "",
+        subjMapper: Optional[IdentityMapper] = None,
+        policyPath: Optional[str] = "",
+        policyRoot: Optional[str] = "",
+        policyPathMapper: Optional[StringMapper] = None,
+    ) -> Callable[[Handler], Handler]:
+        ...
 
     def authorize(
         self,
@@ -164,16 +163,24 @@ class CheckMiddleware:
 
         return self._with_overrides(**kwargs)._authorize
 
+    def __call__(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Union[Handler, Callable[[Handler], Handler]]:
+        return self.authorize(*args, **kwargs)
+
     def _authorize(self, handler: Handler) -> Handler:
         if self._aserto_middleware._policy_instance_name == None:
             raise TypeError(f"{self._aserto_middleware._policy_instance_name}() should not be None")
-        
+
         if self._aserto_middleware._policy_instance_label == None:
-            self._aserto_middleware._policy_instance_label = self._aserto_middleware._policy_instance_name
+            self._aserto_middleware._policy_instance_label = (
+                self._aserto_middleware._policy_instance_name
+            )
 
         @wraps(handler)
         def decorated(*args: Any, **kwargs: Any) -> Response:
-
             policy_mapper = self._build_policy_path_mapper()
             decision = self._aserto_middleware.is_allowed(
                 decision="allowed",
@@ -181,14 +188,16 @@ class CheckMiddleware:
                 identity_provider=self._identity_provider,
                 policy_instance_name=self._aserto_middleware._policy_instance_name or "",
                 policy_instance_label=self._aserto_middleware._policy_instance_label or "",
-                policy_path_root=self._options.policyRoot or self._aserto_middleware._policy_path_root,
+                policy_path_root=self._options.policyRoot
+                or self._aserto_middleware._policy_path_root,
                 policy_path_resolver=policy_mapper,
                 resource_context_provider=self._resource_context_provider,
             )
 
             if not decision:
-                raise AuthorizationError(policy_instance_name=self._aserto_middleware._policy_instance_name, policy_path=policy_mapper()) # type: ignore[arg-type]
+                raise AuthorizationError(policy_instance_name=self._aserto_middleware._policy_instance_name, policy_path=policy_mapper())  # type: ignore[arg-type]
 
             return handler(*args, **kwargs)
 
         return cast(Handler, decorated)
+
