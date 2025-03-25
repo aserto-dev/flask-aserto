@@ -2,19 +2,20 @@ import re
 from dataclasses import dataclass
 from typing import Callable, TypeVar, Any
 
-from aserto.client import Identity, ResourceContext, IdentityType
+from aserto.client import Identity, ResourceContext
 from flask import request
 
 __all__ = [
     "create_default_policy_path_resolver",
-    "DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_ENDPOINT",
-    "DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_DISPLAY_STATE_MAP",
+    "default_display_state_resource_mapper",
+    "default_endpoint_resource_mapper",
 ]
+
 
 @dataclass
 class Obj:
-    id: str
-    objType: str
+    object_id: str
+    object_type: str
 
 
 IdentityMapper = Callable[[], Identity]
@@ -22,6 +23,7 @@ StringMapper = Callable[[], str]
 ObjectMapper = Callable[[], Obj]
 ResourceMapper = Callable[[], ResourceContext]
 DEFAULT_DISPLAY_STATE_MAP_ENDPOINT = "/__displaystatemap"
+
 
 @dataclass(frozen=True)
 class AuthorizationError(Exception):
@@ -32,11 +34,11 @@ class AuthorizationError(Exception):
 Handler = TypeVar("Handler", bound=Callable[..., Any])
 
 
-def DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_ENDPOINT() -> ResourceContext:
+def default_endpoint_resource_mapper() -> ResourceContext:
     return request.view_args or {}
 
 
-def DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_DISPLAY_STATE_MAP() -> ResourceContext:
+def default_display_state_resource_mapper() -> ResourceContext:
     return request.get_json(silent=True) or {}
 
 

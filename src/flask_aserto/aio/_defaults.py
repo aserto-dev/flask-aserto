@@ -7,16 +7,17 @@ from flask import request
 
 __all__ = [
     "create_default_policy_path_resolver",
-    "DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_ENDPOINT",
-    "DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_DISPLAY_STATE_MAP",
+    "default_display_state_resource_mapper",
+    "default_endpoint_resource_mapper",
     "policy_path_heuristic",
 ]
 
 
 @dataclass
 class Obj:
-    id: str
-    objType: str
+    object_id: str
+    object_type: str
+
 
 @dataclass(frozen=True)
 class AuthorizationError(Exception):
@@ -35,14 +36,14 @@ ObjectMapper = Callable[[], Awaitable[Obj]]
 ResourceMapper = Callable[[], Awaitable[ResourceContext]]
 
 
-def DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_ENDPOINT() -> ResourceMapper:
+def default_endpoint_resource_mapper() -> ResourceMapper:
     async def view_args() -> ResourceContext:
         return request.view_args or {}
 
     return view_args
 
 
-def DEFAULT_RESOURCE_CONTEXT_PROVIDER_FOR_DISPLAY_STATE_MAP() -> ResourceMapper:
+def default_display_state_resource_mapper() -> ResourceMapper:
     async def get_json_from_request() -> ResourceContext:
         return request.get_json(silent=True) or {}
 
