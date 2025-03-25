@@ -31,16 +31,13 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.9"
 Flask-Cors = ">=4.0.2,<5.0.0"
-grpcio = "^1.64.0"
-protobuf = "^5.27.2"
-aserto = "^0.32.1"
+aserto = "^0.32.2"
 
-[tool.poetry.dev-dependencies]
-black = "^24.3"
-isort= "^5.9.0"
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+isort = "^6.0.1"
 pyright = "^1.1.0"
 pytest = "^8.2.2"
-bump-my-version = "^0.28.1"
 
 [tool.black]
 line-length = 100
@@ -49,26 +46,18 @@ target-version = ["py38"]
 [tool.isort]
 profile = "black"
 
-[tool.bumpversion]
-current_version = "0.31.2"
-parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
-serialize = ["{major}.{minor}.{patch}"]
-search = "{current_version}"
-replace = "{new_version}"
-regex = false
-ignore_missing_version = false
-ignore_missing_files = false
-tag = false
-sign_tags = false
-tag_name = "v{new_version}"
-tag_message = "Bump version: {current_version} → {new_version}"
-allow_dirty = false
-commit = false
-message = "Bump version: {current_version} → {new_version}"
-commit_args = "no"
-setup_hooks = []
-pre_commit_hooks = []
-post_commit_hooks = []
+[tool.pylint]
+max-line-length = 100
+disable = [
+  "duplicate-code",
+  "missing-module-docstring",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "protected-access",
+  "too-many-instance-attributes",
+  "too-many-arguments",
+  "too-many-positional-arguments",
+]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
